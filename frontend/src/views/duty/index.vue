@@ -114,7 +114,8 @@ function openCreate() {
 
 function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
-  const result = applyAction(meta.key, Number(row.id), action)
+  // 带上当前行的版本号：同一班次并发调班时，只有版本对得上的一条能生效。
+  const result = applyAction(meta.key, Number(row.id), action, Number(row.revision ?? 0))
   if (!result.ok) {
     errorMessage.value = result.message
     return

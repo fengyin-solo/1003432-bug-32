@@ -32,6 +32,8 @@ export type ActionResult = {
   message: string
 }
 
+export type TransactResult<T> = { ok: true; value: T } | { ok: false; message: string }
+
 export type OverviewResult = {
   cards: { label: string; value: number }[]
   modules: { name: string; created: number; pending: number; abnormal: number }[]
