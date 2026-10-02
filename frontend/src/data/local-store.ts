@@ -29,6 +29,14 @@ function readStorage(): Record<string, EntryRow[]> {
 
 let cache: Record<string, EntryRow[]> | null = null
 
+// 先落盘、再换缓存：写不进去就抛错，内存里不留「假成功」的状态，刷新后才不会又冒出旧数据。
+function persist(next: Record<string, EntryRow[]>): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  }
+  cache = next
+}
+
 export function allRows(): Record<string, EntryRow[]> {
   if (cache === null) {
     cache = readStorage()
@@ -41,11 +49,22 @@ export function listRows(key: string): EntryRow[] {
 }
 
 export function saveRows(key: string, rows: EntryRow[]): void {
-  const next = { ...allRows(), [key]: rows }
-  cache = next
-  if (typeof window !== 'undefined' && window.localStorage) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  persist({ ...readStorage(), [key]: rows })
+}
+
+// 事务式写入：基于 localStorage 里的最新数据校验并算出下一版，updater 返回 null 就整笔放弃。
+// 要么全部落盘、要么一行都不写，不会留下半截交接记录；多标签页并发时后到的请求能看到先到的结果。
+export function updateRows(
+  key: string,
+  updater: (rows: EntryRow[]) => EntryRow[] | null,
+): EntryRow[] | null {
+  const stored = readStorage()
+  const next = updater(stored[key] ?? [])
+  if (next === null) {
+    return null
   }
+  persist({ ...stored, [key]: next })
+  return next
 }
 
 export function resetRows(key: string): EntryRow[] {
